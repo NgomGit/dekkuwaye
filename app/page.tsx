@@ -17,7 +17,8 @@ import {
   TrendingUp, 
   Check,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 
 // Base de données mise à jour avec les vrais chemins d'images et les tarifs spécifiques demandés
@@ -105,6 +106,15 @@ const SITES_DATA = [
   }
 ];
 
+// Configuration des options de fréquences de paiement
+const FREQUENCY_OPTIONS = [
+  { id: 'daily', label: 'Journalier', days: 1, text: 'par jour', textShort: 'jour' },
+  { id: 'weekly', label: 'Hebdo', days: 7, text: 'par semaine', textShort: 'semaine' },
+  { id: 'ten-days', label: '10 jours', days: 10, text: 'tous les 10 jours', textShort: '10j' },
+  { id: 'bi-weekly', label: 'Bi-mensuel', days: 14, text: 'toutes les 2 semaines', textShort: '2 sem' },
+  { id: 'monthly', label: 'Mensuel', days: 30, text: 'par mois', textShort: 'mois' }
+];
+
 export default function DekkuwayeLanding() {
   const [selectedSite, setSelectedSite] = useState<typeof SITES_DATA[0] | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -113,6 +123,7 @@ export default function DekkuwayeLanding() {
   const [selectedPropertyType, setSelectedPropertyType] = useState<string>('standard');
   const [simulationDeposit, setSimulationDeposit] = useState(0); // Commencer par défaut à 0 FCFA (pas d'apport obligatoire)
   const [simulationMonths, setSimulationMonths] = useState(24);
+  const [selectedFrequency, setSelectedFrequency] = useState<string>('monthly');
 
   // Synchroniser le simulateur lorsque l'utilisateur change de site
   useEffect(() => {
@@ -120,6 +131,7 @@ export default function DekkuwayeLanding() {
       setSelectedPropertyType('standard');
       setSimulationDeposit(0); // L'apport de départ est de 0 FCFA pour laisser le choix total à l'utilisateur
       setSimulationMonths(selectedSite.defaultMonths);
+      setSelectedFrequency('monthly');
       setActiveImageIndex(0);
     }
   }, [selectedSite]);
@@ -132,9 +144,17 @@ export default function DekkuwayeLanding() {
     ? selectedSite.basePrice + currentPropertyOption.modifier 
     : 0;
 
-  // Calcul du montant restant et de la mensualité échelonnée
+  // Calcul du montant restant à payer
   const remainingAmount = Math.max(0, calculatedPrice - simulationDeposit);
-  const simulatedMonthlyTranche = simulationMonths > 0 ? Math.round(remainingAmount / simulationMonths) : 0;
+
+  // Trouver les détails de la fréquence de versement sélectionnée
+  const activeFreqDetail = FREQUENCY_OPTIONS.find(f => f.id === selectedFrequency) || FREQUENCY_OPTIONS[4];
+
+  // Calculer l'échéance selon la fréquence choisie
+  // Base : 1 mois = 30 jours
+  const totalDays = simulationMonths * 30;
+  const totalPeriods = Math.max(1, Math.round(totalDays / activeFreqDetail.days));
+  const simulatedInstallmentTranche = Math.round(remainingAmount / totalPeriods);
 
   // Fonctions de navigation pour le carrousel d'images
   const handlePrevImage = () => {
@@ -161,8 +181,9 @@ export default function DekkuwayeLanding() {
       `📐 Type de terrain : ${currentPropertyOption.label}\n` +
       `💰 Prix total : ${calculatedPrice.toLocaleString()} FCFA\n` +
       `💵 Apport initial proposé : ${simulationDeposit === 0 ? 'Aucun (0 FCFA)' : `${simulationDeposit.toLocaleString()} FCFA`}\n` +
-      `⏱️ Durée du paiement : ${simulationMonths} mois\n` +
-      `💶 Mensualité estimée : ${simulatedMonthlyTranche.toLocaleString()} FCFA/mois\n\n` +
+      `⏱️ Durée globale du paiement : ${simulationMonths} mois\n` +
+      `🔄 Fréquence de versement : ${activeFreqDetail.label}\n` +
+      `💶 Versement estimé : ${simulatedInstallmentTranche.toLocaleString()} FCFA ${activeFreqDetail.text}\n\n` +
       `Pouvez-vous me recontacter pour finaliser mon option de réservation ?`;
 
     return `https://wa.me/221781913490?text=${encodeURIComponent(message)}`;
@@ -221,6 +242,7 @@ export default function DekkuwayeLanding() {
           <div className="grid lg:grid-cols-12 gap-12 items-start">
             
             {/* Colonne de Gauche : Diaporama Photo et Caractéristiques du Site */}
+            {}
             <div className="lg:col-span-7 space-y-8">
               
               {/* DIAPORAMA PHOTO INTERACTIF */}
@@ -336,6 +358,7 @@ export default function DekkuwayeLanding() {
             </div>
 
             {/* Column de Droite : Simulateur Financier Dynamique et Actions Directes */}
+            {}
             <div className="lg:col-span-5 space-y-8 lg:sticky lg:top-24">
               
               {/* SIMULATEUR DE TRANCHE COMPLET & SÉLECTION DE PROPRIÉTÉ */}
@@ -351,7 +374,7 @@ export default function DekkuwayeLanding() {
                   <div>
                     <h3 className="text-xl font-bold">Personnalisez votre plan</h3>
                     <p className="text-xs text-slate-300 mt-1">
-                      Sélectionnez un type de parcelle, puis ajustez la durée et votre apport (facultatif).
+                      Sélectionnez votre type de parcelle, ajustez la fréquence de versement et la durée.
                     </p>
                   </div>
 
@@ -387,10 +410,32 @@ export default function DekkuwayeLanding() {
                     </div>
                   </div>
 
-                  {/* 2. CONFIGURATION DE L'APPORT INITIAL (ENTIÈREMENT FLEXIBLE - AVEC PAS DE 25.000) */}
+                  {/* 2. SÉLECTION DE LA FRÉQUENCE DE PAIEMENT */}
+                  <div className="space-y-3 pt-2 border-t border-white/10">
+                    <label className="block text-xs font-bold uppercase text-slate-300 tracking-wider">
+                      Étape 2 : Fréquence des versements
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                      {FREQUENCY_OPTIONS.map((freq) => (
+                        <button
+                          key={freq.id}
+                          onClick={() => setSelectedFrequency(freq.id)}
+                          className={`py-2 px-1 rounded-xl text-center border text-xs font-semibold transition-all ${
+                            selectedFrequency === freq.id
+                              ? 'bg-emerald-500 text-[#0f2a4a] border-emerald-400 shadow-sm'
+                              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                          }`}
+                        >
+                          <span className="block truncate">{freq.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 3. CONFIGURATION DE L'APPORT INITIAL (ENTIÈREMENT FLEXIBLE - AVEC PAS DE 25.000) */}
                   <div className="space-y-3 pt-2 border-t border-white/10">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-300">Étape 2 : Apport Initial</span>
+                      <span className="text-slate-300">Étape 3 : Apport Initial</span>
                       <span className="font-black text-emerald-400 text-base">
                         {simulationDeposit === 0 ? "Sans apport (0 FCFA)" : `${simulationDeposit.toLocaleString()} FCFA`}
                       </span>
@@ -402,7 +447,7 @@ export default function DekkuwayeLanding() {
                       type="range" 
                       min={0} 
                       max={calculatedPrice - 250000} 
-                      step={25000} // Pas de réglage ultra-fin de 25 000 FCFA
+                      step={25000} // Pas de réglage fin de 25 000 FCFA
                       value={simulationDeposit}
                       onChange={(e) => setSimulationDeposit(Number(e.target.value))}
                       className="w-full accent-emerald-400 bg-slate-700 h-1.5 rounded-lg cursor-pointer"
@@ -413,10 +458,10 @@ export default function DekkuwayeLanding() {
                     </div>
                   </div>
 
-                  {/* 3. CHOIX DE LA DURÉE */}
+                  {/* 4. CHOIX DE LA DURÉE GLOBALE */}
                   <div className="space-y-3 pt-2 border-t border-white/10">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-300">Étape 3 : Durée du paiement</span>
+                      <span className="text-slate-300">Étape 4 : Durée globale du paiement</span>
                       <span className="font-bold text-emerald-400">{simulationMonths} mois</span>
                     </div>
                     <input 
@@ -434,14 +479,17 @@ export default function DekkuwayeLanding() {
                     </div>
                   </div>
 
-                  {/* RÉSULTAT DE LA TRANCHE MENSUELLE */}
+                  {/* RÉSULTAT DE LA TRANCHE SELON FRÉQUENCE */}
                   <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl text-center space-y-1">
-                    <p className="text-xs text-emerald-300 font-semibold uppercase tracking-wide">Mensualité Estimée</p>
+                    <p className="text-xs text-emerald-300 font-semibold uppercase tracking-wide flex items-center justify-center gap-1">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
+                      Versement Échéancier ({activeFreqDetail.label})
+                    </p>
                     <p className="text-3xl font-black text-emerald-400">
-                      {simulatedMonthlyTranche.toLocaleString()} <span className="text-sm font-bold text-white">FCFA / mois</span>
+                      {simulatedInstallmentTranche.toLocaleString()} <span className="text-sm font-bold text-white">FCFA / {activeFreqDetail.textShort}</span>
                     </p>
                     <p className="text-[10px] text-slate-300">
-                      Sans intérêt ni intermédiaire bancaire. Fonds sécurisés sur compte bancaire officiel.
+                      Évaluation basée sur un total de <span className="font-bold text-emerald-400">{totalPeriods} versements</span>.
                     </p>
                   </div>
                 </div>
@@ -494,12 +542,13 @@ export default function DekkuwayeLanding() {
         <main>
           
           {/* --- HERO SECTION WITH MAIN LOGO AND TEXTURE --- */}
+          {}
           <section className="relative bg-[#0f2a4a] text-white py-20 lg:py-32 overflow-hidden">
             <div 
-              className="absolute inset-0 bg-[url('/hero-dekkuwaye.png')] bg-cover bg-center opacity-25 mix-blend-overlay animate-pulse"
+              className="absolute inset-0 bg-[url('/hero-dekkuwaye.jpeg')] bg-cover bg-center opacity-100 mix-blend-overlay animate-pulse"
               style={{ animationDuration: '6s' }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0f2a4a] via-[#0f2a4a]/85 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0f2a4a]/25 via-[#0f2a4a]/15 to-transparent pointer-events-none" />
             
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-6">
@@ -513,9 +562,9 @@ export default function DekkuwayeLanding() {
                   Acquérez votre terrain en toute sérénité, en plusieurs tranches adaptées à votre budget. Le projet de <strong>GIS-GIS IMMOBILIER</strong> pour la Diaspora et les Sénégalais.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                  <a href="#sites" className="bg-emerald-500 hover:bg-emerald-600 text-[#0f2a4a] font-bold px-8 py-4 rounded-xl shadow-lg transition-all text-center flex items-center justify-center gap-2">
+                  <button onClick={() => { const el = document.getElementById('sites'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="bg-emerald-500 hover:bg-emerald-600 text-[#0f2a4a] font-bold px-8 py-4 rounded-xl shadow-lg transition-all text-center flex items-center justify-center gap-2">
                     Découvrir les sites <ArrowRight className="w-5 h-5" />
-                  </a>
+                  </button>
                   <a href="https://wa.me/221781913490" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium px-8 py-4 rounded-xl transition-all text-center flex items-center justify-center gap-2">
                     Discuter sur WhatsApp
                   </a>
@@ -545,6 +594,7 @@ export default function DekkuwayeLanding() {
           </section>
 
           {/* --- SECTION CONCEPT / AVANTAGES --- */}
+          {}
           <section id="concept" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-3xl font-bold text-[#0f2a4a] sm:text-4xl">Comment fonctionne le programme ?</h2>
@@ -553,7 +603,7 @@ export default function DekkuwayeLanding() {
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { icon: <MapPin className="w-6 h-6 text-emerald-500" />, title: "1. Choisissez votre site", desc: "Explorez nos lotissements d'avenir de Déni Birame Ndao et Gorom, et sélectionnez la parcelle idéale." },
-                { icon: <Calendar className="w-6 h-6 text-emerald-500" />, title: "2. Versez en plusieurs fois", desc: "Payez votre apport initial (optionnel). Les mensualités suivantes sont déposées directement sur le compte bancaire du projet." },
+                { icon: <Calendar className="w-6 h-6 text-emerald-500" />, title: "2. Versez en plusieurs fois", desc: "Payez votre apport initial (optionnel). Les mensualités ou tranches régulières sont déposées directement sur le compte bancaire du projet." },
                 { icon: <ShieldCheck className="w-6 h-6 text-emerald-500" />, title: "3. Suivi applicatif & Titre", desc: "Suivez l'évolution de vos versements sur notre future application mobile et recevez vos documents légaux à terme." }
               ].map((step, idx) => (
                 <div key={idx} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
@@ -568,6 +618,7 @@ export default function DekkuwayeLanding() {
           </section>
 
           {/* --- SECTION SITES DISPONIBLES (DÉNI & GOROM) --- */}
+          {}
           <section id="sites" className="py-20 bg-slate-100/70 border-t border-b border-slate-200/40">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
@@ -623,7 +674,7 @@ export default function DekkuwayeLanding() {
                       <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
                         <div>
                           <p className="text-xs text-slate-400 uppercase font-semibold">Option d'achat</p>
-                          <p className="text-lg font-extrabold text-[#0f2a4a]">Tranches Échelonnées</p>
+                          <p className="text-lg font-extrabold text-[#0f2a4a]">Versements Flexibles</p>
                         </div>
                         <button 
                           onClick={() => setSelectedSite(site)}
@@ -640,6 +691,7 @@ export default function DekkuwayeLanding() {
           </section>
 
           {/* --- SECTION PROMOTIONS ET CONTACTS DIRECTS --- */}
+          {}
           <section id="propos" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-16 items-center">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -690,6 +742,7 @@ export default function DekkuwayeLanding() {
           </section>
 
           {/* --- SECTION REGLES ET CONDITIONS --- */}
+          {}
           <section id="conditions" className="py-20 bg-slate-100/50 border-t border-b border-slate-200/50">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-12">
@@ -703,7 +756,7 @@ export default function DekkuwayeLanding() {
                 </div>
                 <div className="border-b border-slate-100 pb-4">
                   <h4 className="font-bold text-[#0f2a4a] mb-1">📱 Versements & Application Mobile</h4>
-                  <p className="text-sm text-slate-600">Les mensualités sont à verser selon l'échéancier convenu. Une application mobile sera mise à votre disposition pour vous permettre d'effectuer vos dépôts directement vers votre compte associé sans vous déplacer.</p>
+                  <p className="text-sm text-slate-600">Les mensualités ou tranches flexibles sont à verser selon l'échéancier convenu. Une application mobile sera mise à votre disposition pour vous permettre d'effectuer vos dépôts directement vers votre compte associé sans vous déplacer.</p>
                 </div>
                 <div>
                   <h4 className="font-bold text-amber-600 mb-1">⚠️ Politique d'Annulation et Retrait</h4>
@@ -714,6 +767,7 @@ export default function DekkuwayeLanding() {
           </section>
 
           {/* --- SECTION CONTACT & ASSISTANCE DIRECTE --- */}
+          {}
           <section id="contact" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8 animate-fadeIn">
             <div className="max-w-3xl mx-auto space-y-4">
               <h2 className="text-3xl font-bold text-[#0f2a4a] sm:text-4xl">Prêt à lancer votre projet ?</h2>
@@ -764,6 +818,7 @@ export default function DekkuwayeLanding() {
       )}
 
       {/* --- FOOTER --- */}
+      {}
       <footer className="bg-[#0f2a4a] text-slate-400 text-xs py-12 border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left space-y-1">
